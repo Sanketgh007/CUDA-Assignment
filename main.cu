@@ -4,7 +4,28 @@
 #define N 1024
 
 __global__ void reduce_sum(float* input, float* output) {
-   // TODO: Implement this
+    extern __shared__ float sdata[];
+    
+    // Thread and block indices
+    unsigned int tid = threadIdx.x;
+    unsigned int i = blockIdx.x * blockDim.x + threadIdx.x;
+    
+    // Load input into shared memory
+    sdata[tid] = (i < N) ? input[i] : 0;
+    __syncthreads();
+    
+    // Tree-based reduction in shared memory
+    for (unsigned int s = blockDim.x / 2; s > 0; s >>= 1) {
+        if (tid < s) {
+            sdata[tid] += sdata[tid + s];
+        }
+        __syncthreads();
+    }
+    
+    // Write result for this block to global memory
+    if (tid == 0) {
+        output[blockIdx.x] = sdata[0];
+    }
 }
 
 int main() {
